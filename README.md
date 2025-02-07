@@ -1,2 +1,2 @@
 # Enlighten_Web_App
-A language exchange application.
+An language exchange application.
