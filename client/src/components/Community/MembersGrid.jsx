@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { FiSearch, FiSliders } from "react-icons/fi";
 import HighlightedProfiles from "./HighlightedProfiles";
@@ -30,8 +30,16 @@ const MemberCard = ({ member }) => {
         <p className="text-sm text-gray-600">{member?.description}</p>
         <div className="flex items-center space-x-2 mt-2 text-sm text-gray-500">
           <div className="flex gap-2 items-center">
-            <span className="font-medium text-black">SPEAKS</span>
+            <span className="font-medium text-black">SPEAKS:</span>
             {member?.speaks.map((lang, index) => (
+              <span key={index} className="ml-1">
+                {lang}
+              </span>
+            ))}
+          </div>
+          <div className="flex gap-2 items-center">
+            <span className="font-medium text-black">LEARNS:</span>
+            {member?.learns.map((lang, index) => (
               <span key={index} className="ml-1">
                 {lang}
               </span>
@@ -74,12 +82,9 @@ const Tabs = () => {
 };
 
 // Search bar for filtering members
-const SearchBar = ({ onSearch }) => {
-  const [searchQuery, setSearchQuery] = useState("");
-
+const SearchBar = ({ searchQuery, onSearch }) => {
   const handleSearch = (e) => {
-    setSearchQuery(e.target.value);
-    onSearch(e.target.value);
+    onSearch(e.target.value); // Update parent's searchQuery state
   };
 
   return (
@@ -104,47 +109,37 @@ const SearchBar = ({ onSearch }) => {
 const MembersGrid = () => {
   const dispatch = useDispatch();
   const { members, status, error } = useSelector((state) => state.members);
-  const { currentUser } = useSelector((state) => state.user); // Get the logged-in user
+  const { currentUser } = useSelector((state) => state.user);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const [filteredMembers, setFilteredMembers] = useState([]);
-
+  // Fetch members on component mount
   useEffect(() => {
     dispatch(fetchMembers());
   }, [dispatch]);
 
-  useEffect(() => {
-    // Filter out the logged-in user's profile from the members list
+  // Centralized filtering logic using useMemo
+  const filteredMembers = useMemo(() => {
+    let filtered = [...members];
+
+    // Filter out the logged-in user
     if (currentUser) {
-      const filtered = members.filter(
-        (member) => member._id !== currentUser._id
-      );
-      setFilteredMembers(filtered);
-    } else {
-      setFilteredMembers(members);
+      filtered = filtered.filter((member) => member._id !== currentUser._id);
     }
-  }, [members, currentUser]);
 
-  const handleSearch = (query) => {
-    if (query) {
-      const filtered = members.filter(
+    // Apply search filter
+    if (searchQuery) {
+      const lowerQuery = searchQuery.toLowerCase();
+      filtered = filtered.filter(
         (member) =>
-          member.name.toLowerCase().includes(query.toLowerCase()) ||
-          member.description.toLowerCase().includes(query.toLowerCase())
+          member.name.toLowerCase().includes(lowerQuery) ||
+          member.description.toLowerCase().includes(lowerQuery)
       );
-      // Filter out the logged-in user's profile from the filtered members list
-      const filteredExcludingUser = filtered.filter(
-        (member) => member._id !== currentUser._id
-      );
-      setFilteredMembers(filteredExcludingUser);
-    } else {
-      // Filter out the logged-in user's profile from the members list
-      const filtered = members.filter(
-        (member) => member._id !== currentUser._id
-      );
-      setFilteredMembers(filtered);
     }
-  };
 
+    return filtered;
+  }, [members, currentUser, searchQuery]);
+
+  // Render content based on status
   let content;
   if (status === "loading") {
     content = <p>Loading...</p>;
@@ -165,7 +160,7 @@ const MembersGrid = () => {
       <div className="max-w-[1450px] mx-auto">
         <div className="flex items-center justify-between">
           <Tabs />
-          <SearchBar onSearch={handleSearch} />
+          <SearchBar searchQuery={searchQuery} onSearch={setSearchQuery} />
         </div>
         {content}
         <HighlightedProfiles />
